@@ -78,14 +78,13 @@ it automatically and confirm rather than asking from scratch.
 
 ---
 
-## Step 3 — Items per execution
+## Step 3 — Scale
 
-Ask how many items the workflow processes each time it runs.
+Ask how much the workflow processes each time it runs.
 
-> "How many items does it process per execution? For example: emails, messages, rows, records."
+> "What's the scale? How much does it process each time it runs — for example: 3,000 emails, 50 Notion rows, 1 Slack message."
 
-Capture as an integer (`items_per_execution`). If the user is unsure, suggest they use
-a typical or average number.
+Capture as an integer (`volume`). If the user is unsure, suggest they use a typical or average number. If the workflow just does one thing per run (e.g. sends a single notification), default to 1 and confirm.
 
 ---
 
