@@ -1,9 +1,9 @@
 ---
 name: n8n-cost-estimator
 description: >
-  Estimates the monthly running cost of an n8n workflow by asking the user about their
-  workflow, the external services it uses, and how often it runs — then calling their
-  personal n8n webhook to get a full cost breakdown.
+  Estimates the monthly running cost of an n8n workflow. The user can share their workflow
+  as a URL, a JSON export, or a plain description — Claude extracts the relevant details
+  and calls a personal n8n webhook to get a full cost breakdown.
 
   Trigger phrases: "estimate my n8n workflow cost", "how much will my n8n workflow cost",
   "n8n cost", "workflow cost estimator", "cost of my automation", "/n8n-cost"
@@ -13,8 +13,7 @@ description: >
 
 You are helping the user estimate the monthly running cost of an n8n workflow.
 The actual calculation is handled by an n8n webhook the user has set up. Your job is
-to collect the right information conversationally, call the webhook, and present the
-result clearly.
+to collect the right information, call the webhook, and present the result clearly.
 
 ---
 
@@ -22,27 +21,46 @@ result clearly.
 
 Check memory for a saved key `n8n_cost_estimator_webhook_url`.
 
-- **If found:** confirm it with the user before proceeding.
-  > "I have your webhook URL saved as `{url}`. Shall I use that, or do you want to update it?"
-- **If not found:** ask the user for it.
-  > "To get started, I need your n8n webhook URL. You can find it in your n8n workflow's Webhook trigger node — it looks like `https://your-instance.app.n8n.cloud/webhook/...`"
+- **If found:** confirm with the user before proceeding.
+  > "I have your estimator webhook saved as `{url}`. Shall I use that, or do you want to update it?"
+- **If not found:** ask for it.
+  > "First, I need your cost estimator webhook URL — the one from your n8n cost estimator workflow. It looks like `https://your-instance.app.n8n.cloud/webhook/...`"
 
-Once you have a confirmed URL, save it to memory under the key `n8n_cost_estimator_webhook_url`.
+Once confirmed, save it under `n8n_cost_estimator_webhook_url`.
 
 ---
 
-## Step 2 — Describe the workflow
+## Step 2 — Get the workflow to analyse
 
-Ask the user to describe what their workflow does and which external services it connects to.
+Ask the user to share the workflow they want to cost. Offer three options clearly:
 
-> "Tell me about your workflow — what does it do, and which external services does it use?
-> For example: Gmail, Slack, Notion, WhatsApp Business, OpenAI, a weather API, a database, etc."
+> "Now, share the workflow you want to estimate. You can:
+>
+> 1. **Paste the JSON** — export it from n8n via the menu (⋮ → Download) and paste it here
+> 2. **Paste a workflow URL** — the editor URL from your n8n instance
+> 3. **Describe it** — tell me what it does and which services it uses (Gmail, Slack, OpenAI, etc.)
+>
+> Any of these works."
 
-Capture:
-- A short description of what the workflow does (`workflow_description`)
-- A list of external services mentioned (`services`)
+### If the user pastes JSON
 
-Do not suggest services — let the user describe their own workflow freely.
+Parse the JSON to extract:
+- `workflow_description`: derive from the workflow name and node names/types
+- `services`: list every third-party service found in node types or credentials
+  (e.g. `n8n-nodes-base.gmail` → Gmail, `@n8n/n8n-nodes-langchain.lmChatAnthropic` → Anthropic, etc.)
+
+Do not ask follow-up questions about services if the JSON makes them clear.
+
+### If the user pastes a URL
+
+Attempt to fetch the URL. If it requires authentication or returns an error, ask them to
+export the JSON instead or describe the workflow.
+
+### If the user describes the workflow
+
+Accept the description as-is. Extract the services they mention. If the description is
+vague, ask one clarifying question:
+> "Which external services does it connect to? For example: email, messaging apps, databases, AI APIs."
 
 ---
 
@@ -52,15 +70,18 @@ Ask how often the workflow runs.
 
 > "How often does this workflow run?"
 
-Accept natural language and map it to one of these valid values:
+Accept natural language and map to one of these valid values:
 - `"once"` — one-off / manual
 - `"hourly"` — every hour
 - `"daily"` — once a day
 - `"weekly"` — once a week
 - `"monthly"` — once a month
 
-If the user says something like "every 15 minutes" or "twice a day", pick the closest valid
-value and confirm: "I'll treat that as hourly — does that sound right?"
+If the user says something ambiguous like "every 15 minutes" or "twice a day", pick the
+closest value and confirm: "I'll treat that as hourly — does that sound right?"
+
+If the frequency is already specified in the workflow JSON (e.g. a Schedule trigger node),
+extract it automatically and confirm rather than asking from scratch.
 
 ---
 
@@ -68,10 +89,10 @@ value and confirm: "I'll treat that as hourly — does that sound right?"
 
 Ask how many items the workflow processes each time it runs.
 
-> "How many items does it process per execution? For example: emails, messages, rows, records, API responses."
+> "How many items does it process per execution? For example: emails, messages, rows, records."
 
-Capture this as an integer (`items_per_execution`). If the user is unsure, suggest they
-use a typical or average number.
+Capture as an integer (`items_per_execution`). If the user is unsure, suggest they use
+a typical or average number.
 
 ---
 
@@ -81,7 +102,7 @@ Make a POST request to the webhook URL with this JSON body:
 
 ```json
 {
-  "workflow_description": "<what the user described>",
+  "workflow_description": "<description or derived from JSON/URL>",
   "services": ["<service1>", "<service2>"],
   "frequency": "<once|hourly|daily|weekly|monthly>",
   "items_per_execution": <number>
@@ -96,8 +117,7 @@ While waiting, show: "Calculating costs..."
 
 ### If the webhook responds successfully
 
-Parse and display the response as a clean cost breakdown. The response will contain cost
-data — present it in this structure:
+Parse and display the response as a clean cost breakdown:
 
 ```
 ── Cost breakdown ─────────────────────────────
@@ -123,12 +143,12 @@ limits, usage-based pricing caveats, services with unknown pricing).
 > "The webhook returned an unexpected response. Here's what came back:"
 > [raw response]
 >
-> "You may want to check that your n8n workflow is active and the webhook URL is correct."
+> "You may want to check that your estimator workflow is active and the webhook URL is correct."
 
 ### If the webhook call fails (network error, timeout, 4xx/5xx)
 
 > "I couldn't reach your webhook. This could mean:
-> - The workflow is not active in n8n (check the toggle in the top-right of the workflow editor)
+> - The estimator workflow is not active in n8n
 > - The webhook URL has changed
 > - There's a temporary connectivity issue
 >
@@ -139,5 +159,5 @@ limits, usage-based pricing caveats, services with unknown pricing).
 
 ## Memory
 
-- Save the webhook URL under `n8n_cost_estimator_webhook_url` after first successful use.
+- Save the webhook URL under `n8n_cost_estimator_webhook_url` after first confirmed use.
 - Do not save workflow descriptions, services, or cost results — those are per-run data.
