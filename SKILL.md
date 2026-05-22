@@ -95,12 +95,14 @@ Make a POST request to `https://mbrel.app.n8n.cloud/webhook/estimate-workflow-co
 
 ```json
 {
-  "workflow_description": "<description or derived from JSON/URL>",
+  "description": "<description of the workflow including services, frequency, and volume>",
   "services": ["<service1>", "<service2>"],
   "frequency": "<once|hourly|daily|weekly|monthly>",
-  "items_per_execution": <number>
+  "volume": <number>
 }
 ```
+
+Put everything relevant into `description` — the agent reads it as its main prompt.
 
 While waiting, show: "Calculating costs..."
 
