@@ -2,85 +2,91 @@
 
 A Claude Code skill that estimates the monthly running cost of any n8n workflow.
 
+---
+
+## Install the skill
+
+**Option A — one line, no clone needed:**
+
+```bash
+curl -sL https://raw.githubusercontent.com/mbrel/n8n-cost-estimator/main/SKILL.md \
+  -o ~/.claude/skills/n8n-cost-estimator.md && echo "✓ Done. Open Claude Code and type: /n8n-cost"
+```
+
+**Option B — clone and run setup:**
+
+```bash
+git clone https://github.com/mbrel/n8n-cost-estimator.git
+cd n8n-cost-estimator
+./setup.sh
+```
+
+That's it. Open a new Claude Code session and type `/n8n-cost`.
+
+---
+
 ## How it works
 
 The skill is the conversational front-end. The actual cost calculation runs inside an n8n
-workflow that you host in your own n8n instance with your own credentials.
+workflow that you host in your own n8n instance.
 
 ```
-User → Claude Code skill → your n8n webhook → Claude AI Agent (your API key) → cost breakdown
+You → Claude Code skill → your n8n webhook → Claude AI Agent (your API key) → cost breakdown
 ```
 
 Each user runs their own instance, so you pay only your own API costs.
 
-## Setup
+---
 
-### 1. Import the n8n workflow
+## Using the skill
+
+Once installed, open Claude Code and type:
+
+```
+/n8n-cost
+```
+
+or just:
+
+```
+estimate my n8n workflow cost
+```
+
+The skill will:
+1. Ask for your estimator webhook URL (saved after first use — you only enter it once)
+2. Ask you to share the workflow to analyse — you can paste the **JSON export**, a **workflow URL**, or just **describe it**
+3. Ask how often it runs and how many items it processes
+4. Call your webhook and return a clean cost breakdown
+
+---
+
+## Set up your own estimator webhook
+
+The skill needs an n8n workflow running in your own instance to do the calculation.
+
+### 1. Import the workflow
 
 Import `workflow.json` into your n8n instance:
 
-1. Open n8n
-2. Go to **Workflows → Import from file**
-3. Select `workflow.json`
-4. You'll see a credentials prompt — add your Anthropic API key
-5. Activate the workflow (toggle in the top-right)
+1. Go to **Workflows → Import from file**
+2. Select `workflow.json`
+3. Add your Anthropic API key when prompted
+4. Activate the workflow (toggle top-right)
 
-**Credentials required:**
-- Anthropic API key (for the Claude AI Agent node inside the workflow)
+**Credentials required:** Anthropic API key only.
 
-No other credentials are needed. The workflow does not connect to any external billing APIs — the Claude agent reasons about pricing from its training knowledge.
+### 2. Copy your webhook URL
 
-### 2. Install the Claude Code skill
+Open the imported workflow, click the Webhook trigger node, and copy the Production URL.
+It looks like: `https://your-instance.app.n8n.cloud/webhook/estimate-workflow-cost`
 
-Copy `SKILL.md` into your Claude Code skills directory:
+### 3. Run the skill
 
-```bash
-cp SKILL.md ~/.claude/skills/n8n-cost-estimator.md
-```
+Type `/n8n-cost` in Claude Code — it will ask for that URL on first run and save it.
 
-Or place it in your project's `.claude/skills/` folder if you want it scoped to a project.
+---
 
-### 3. Run it
-
-In Claude Code, type:
-
-```
-/n8n-cost-estimator
-```
-
-Or trigger it naturally:
-
-> "estimate my n8n workflow cost"
-> "how much will my automation cost to run?"
-
-On first run, the skill will ask for your webhook URL (found in the Webhook trigger node
-in n8n). It saves the URL so you only need to enter it once.
-
-## What the skill collects
-
-| Field | Description |
-|---|---|
-| `workflow_description` | What the workflow does |
-| `services` | External services used (Gmail, Slack, OpenAI, etc.) |
-| `frequency` | How often it runs: `once`, `hourly`, `daily`, `weekly`, `monthly` |
-| `items_per_execution` | How many items it processes per run |
-
-## Webhook payload
-
-The skill sends a POST request to your webhook with:
-
-```json
-{
-  "workflow_description": "Summarise unread emails and post to Slack",
-  "services": ["Gmail", "Slack", "OpenAI"],
-  "frequency": "daily",
-  "items_per_execution": 20
-}
-```
-
-## Output
-
-The skill presents a clean cost breakdown:
+## Output example
 
 ```
 ── Cost breakdown ─────────────────────────────
@@ -99,10 +105,10 @@ The skill presents a clean cost breakdown:
   Based on: daily · 20 items/run
 ```
 
+---
+
 ## Notes
 
-- Pricing estimates are based on the Claude agent's knowledge and may not reflect the
-  latest pricing. Always verify against official pricing pages before making decisions.
+- Pricing estimates are based on the Claude agent's knowledge and may not reflect the latest pricing. Verify against official pricing pages before making decisions.
 - Free tier limits are noted where applicable.
-- Usage-based services (OpenAI, Anthropic, etc.) are estimated based on typical token usage
-  for the described workflow.
+- Usage-based services are estimated based on typical token usage for the described workflow.
